@@ -1,0 +1,147 @@
+{{
+    key_type = __table.key_ttype
+    value_type =  __table.value_ttype
+
+    func table_key_list
+        varName = $0
+        indexList = __table.index_list |array.each do; ret varName + '.' + (format_property_name __code_style $0.index_field.name); end;
+        ret array.join indexList ' + "-" + '
+    end
+
+    func table_param_def_list
+        paramList = __table.index_list |array.each do; ret (declaring_type_name $0.type) + ' ' + (format_field_name __code_style $0.index_field.name); end
+        ret array.join paramList ', '
+    end
+
+    func table_param_name_list
+        paramList = __table.index_list |array.each do; ret (format_field_name __code_style $0.index_field.name); end
+        ret array.join paramList ' + "-" + '
+    end
+}}
+{{~if __namespace_with_top_module != ''~}}
+package {{__namespace_with_top_module}};
+{{~end~}}
+
+import luban.*;
+import java.util.*;
+import com.google.gson.JsonElement;
+
+
+{{~if __this.comment != '' ~}}
+/**
+ * {{escape_comment __this.comment}}
+ */
+{{~end~}}
+public final class {{__name}} {
+    {{~if __this.is_map_table
+     key_type = __this.key_ttype
+     ~}}
+    private final HashMap<{{declaring_box_type_name key_type}}, {{declaring_box_type_name __value_type}}> dataMap;
+    private final ArrayList<{{declaring_box_type_name __value_type}}> dataList;
+    
+    public {{__name}}(JsonElement buf) {
+        dataMap = new HashMap<>();
+        dataList = new ArrayList<>();
+        for (com.google.gson.JsonElement e : buf.getAsJsonArray()) {
+            {{declaring_box_type_name __value_type}} v{{deserialize '' 'e' __value_type}}
+            dataList.add(v);
+            dataMap.put(v.{{format_field_name __code_style __this.index_field.name}}, v);
+        }
+    }
+
+    public HashMap<{{declaring_box_type_name key_type}}, {{declaring_box_type_name __value_type}}> getDataMap() {
+        return dataMap;
+    }
+
+    public ArrayList<{{declaring_box_type_name __value_type}}> getDataList() {
+        return dataList;
+    }
+
+{{~if __value_type.is_dynamic~}}
+    @SuppressWarnings("unchecked")
+    public <T extends {{declaring_box_type_name __value_type}}> T getAs({{declaring_type_name key_type}} key) {
+        return (T)dataMap.get(key);
+    }
+{{~end~}}
+    public {{declaring_box_type_name __value_type}} get({{declaring_type_name key_type}} key) {
+        return dataMap.get(key);
+    }
+
+    {{~else if __this.is_list_table ~}}
+    private final ArrayList<{{declaring_box_type_name __value_type}}> dataList;
+    {{~if __table.is_union_index~}}
+    private final HashMap<String, {{declaring_box_type_name __value_type}}> dataMapUnion;
+    {{~else if !__table.index_list.empty?~}}
+        {{~for idx in __table.index_list~}}
+    private final HashMap<{{declaring_box_type_name idx.type}}, {{declaring_box_type_name __value_type}}> {{format_property_name __code_style 'data_map_'+idx.index_field.name}};
+        {{~end~}}
+    {{~end~}}
+       
+    public {{__name}}(JsonElement buf) {
+        dataList = new ArrayList<>();
+        for (com.google.gson.JsonElement e : buf.getAsJsonArray()) {
+            {{declaring_box_type_name __value_type}} v{{deserialize '' 'e' __value_type}}
+            dataList.add(v);
+        }
+    {{~if __table.is_union_index~}}
+        dataMapUnion = new HashMap<>();
+        for({{declaring_type_name __value_type}} v : dataList) {
+            dataMapUnion.put({{table_key_list "v"}}, v);
+        }
+    {{~else if !__table.index_list.empty?~}}
+    {{~for idx in __table.index_list~}}
+        {{format_property_name __code_style 'data_map_'+idx.index_field.name}} = new HashMap<>();
+    {{~end~}}
+        for({{declaring_type_name __value_type}} v : dataList) {
+        {{~for idx in __table.index_list~}}
+            {{format_property_name __code_style 'data_map_'+idx.index_field.name}}.put(v.{{format_property_name __code_style idx.index_field.name}}, v);
+        {{~end~}}
+        }
+    {{~end~}}
+    }
+
+    public ArrayList<{{declaring_box_type_name __value_type}}> getDataList() { return dataList; }
+
+    public {{declaring_box_type_name __value_type}} get(int index) {
+        return dataList.get(index);
+    }
+
+    {{~if __table.is_union_index~}}
+    public {{declaring_type_name value_type}} get({{table_param_def_list}}) {
+        return dataMapUnion.get({{table_param_name_list}});
+    }
+    {{~else if !__table.index_list.empty? ~}}
+        {{~for idx in __table.index_list~}}
+    public {{declaring_box_type_name __value_type}} {{format_property_name __code_style 'get_by_'+idx.index_field.name}}({{declaring_type_name idx.type}} key) {
+        return {{format_property_name __code_style 'data_map_'+idx.index_field.name}}.get(key);
+    }
+
+        {{~end~}}
+    {{~end~}}
+
+    {{~else~}}
+    private final {{declaring_type_name __value_type}} data;
+
+    public {{declaring_type_name __value_type}} data() {
+        return data;
+    }
+
+    public {{__name}}(JsonElement buf) {
+        int n = buf.getAsJsonArray().size();
+        if (n != 1) throw new SerializationException("table mode=one, but size != 1");
+        {{deserialize 'data' 'buf.getAsJsonArray().get(0).getAsJsonObject()' __value_type}}
+    }
+
+    {{~ for field in __value_type.def_bean.hierarchy_export_fields ~}}
+{{~if field.comment != '' ~}}
+    /**
+     * {{escape_comment field.comment}}
+     */
+{{~end~}}
+     public {{declaring_type_name field.ctype}} {{getter_name field.name}}() {
+        return data.{{format_field_name __code_style field.name}};
+     }
+    {{~end~}}
+
+    {{~end~}}
+}

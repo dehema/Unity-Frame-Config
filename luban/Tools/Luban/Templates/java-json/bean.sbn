@@ -1,0 +1,76 @@
+{{~if __namespace_with_top_module != ''~}}
+package {{__namespace_with_top_module}};
+{{~end~}}
+
+import luban.*;
+import com.google.gson.*;
+
+{{~
+    parent_def_type = __this.parent_def_type
+    export_fields = __this.export_fields
+    hierarchy_export_fields = __this.hierarchy_export_fields
+~}}
+
+{{~if __this.comment != '' ~}}
+/**
+ * {{escape_comment __this.comment}}
+ */
+{{~end~}}
+public {{class_modifier __this}} class {{__name}} extends {{if parent_def_type}}{{__this.parent_def_type.full_name_with_top_module}}{{else}}AbstractBean{{end}} {
+    public {{__name}}(JsonObject buf) {
+        {{~if parent_def_type~}}
+        super(buf);
+        {{~end~}}
+        {{~ for field in export_fields
+            fieldName = format_property_name __code_style field.name
+        ~}}
+            {{~if field.ctype.is_enum ~}}
+        {{fieldName}} = {{field.ctype.def_enum.full_name_with_top_module}}.fromValue(buf.get("{{field.name}}").getAsInt());
+            {{~else~}}
+        {{deserialize_field fieldName 'buf' field.name field.ctype}}
+            {{~end~}}
+        {{~end~}}
+    }
+
+    public static {{__name}} deserialize(JsonObject buf) {
+        {{~if __this.is_abstract_type~}}
+        switch (buf.get("$type").getAsString()) {
+        {{~for child in __this.hierarchy_not_abstract_children~}}
+            case "{{impl_data_type child __this}}": return new {{child.full_name_with_top_module}}(buf);
+        {{~end~}}
+            default: throw new SerializationException();
+        }
+        {{~else~}}
+        return new {{__this.full_name_with_top_module}}(buf);
+        {{~end~}}
+    }
+
+    {{~ for field in export_fields ~}}
+{{~if field.comment != '' ~}}
+    /**
+     * {{escape_comment field.comment}}
+     */
+{{~end~}}
+        {{~if field.ctype.is_enum ~}}
+    public final {{field.ctype.def_enum.full_name_with_top_module}} {{format_field_name __code_style field.name}};
+        {{~else~}}
+    public final {{declaring_type_name field.ctype}} {{format_field_name __code_style field.name}};
+        {{~end~}}
+    {{~end~}}
+
+{{~if !__this.is_abstract_type~}}
+    public static final int __ID__ = {{__this.id}};
+
+    @Override
+    public int getTypeId() { return __ID__; }
+{{~end~}}
+
+    @Override
+    public String toString() {
+        return "{{full_name}}{ "
+    {{~for field in hierarchy_export_fields ~}}
+        + "{{format_field_name __code_style field.name}}:" + {{format_field_name __code_style field.name}} + ","
+    {{~end~}}
+        + "}";
+    }
+}
