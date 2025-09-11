@@ -7,8 +7,8 @@ dotnet %LUBAN_DLL% ^
     -c cs-simple-json^
     -d json ^
     --conf .\gen.conf ^
-    -x outputCodeDir=%Dir_Project%\Assets\RainFramework\Runtime\Config^
-    -x outputDataDir=%Dir_Project%\Assets\StreamingAssets\config
+    -x outputCodeDir=%Dir_Project%\Assets\HotUpdateScripts\Config^
+    -x outputDataDir=%Dir_Project%\Assets\StreamingAssets\Config
 
 pause
 
